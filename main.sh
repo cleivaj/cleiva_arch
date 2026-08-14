@@ -23,8 +23,20 @@ cmd_detect() {
     cat output/facts.txt
 }
 
+cmd_decide() {
+    source output/facts.txt
+    source decide/packages.sh
+    build_packages
+    for p in "${!PACKAGES[@]}"; do
+        echo "$p"
+    done | sort >output/packages.txt
+    info "Packages decided: $(wc -l <output/packages.txt)"
+    cat output/packages.txt
+}
+
 case "$1" in
 detect) cmd_detect ;;
+decide) cmd_decide ;;
 *)
     usage
     exit 1
