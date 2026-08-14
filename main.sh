@@ -88,11 +88,24 @@ cmd_check() {
     log "All packages exist ($ok/$total)"
 }
 
+cmd_clean() {
+    rm -r output/*.txt output/*.md
+    info "Output cleaned"
+}
+
+cmd_all() {
+    cmd_detect
+    cmd_decide
+    cmd_check
+}
+
 case "$1" in
 detect) cmd_detect ;;
 decide) cmd_decide ;;
 search) cmd_search "$2" ;;
 check) cmd_check ;;
+clean) cmd_clean ;;
+all) cmd_all ;;
 *)
     usage
     exit 1
