@@ -99,6 +99,14 @@ cmd_all() {
     cmd_check
 }
 
+cmd_partition() {
+    source output/facts.txt
+    source decide/partition.sh
+    build_partitions >output/partition.txt
+    info "Partition plan:"
+    cat output/partition.txt
+}
+
 case "$1" in
 detect) cmd_detect ;;
 decide) cmd_decide ;;
@@ -106,6 +114,8 @@ search) cmd_search "$2" ;;
 check) cmd_check ;;
 clean) cmd_clean ;;
 all) cmd_all ;;
+partition) cmd_partition ;;
+
 *)
     usage
     exit 1

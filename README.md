@@ -1,103 +1,103 @@
 # arch_installer
 
-Instalador de Arch Linux **educativo**: detecta tu hardware y decide qué
-paquetes necesitaría una instalación con Hyprland. No instala nada — la
-primera versión es solo **detección + decisión** para que entiendas cómo
-funciona cada pieza por dentro.
+**Educational** Arch Linux installer: detects your hardware and decides which
+packages an installation with Hyprland would need. It doesn't install
+anything — the first version is just **detection + decision** so you
+understand how each piece works under the hood.
 
-## Cómo funciona
+## How it works
 
-Un instalador no es magia. Es esto:
+An installer isn't magic. It's this:
 
 ```
-detectar hardware  →  decidir paquetes  →  ejecutar la instalación
-     (leer)              (pensar)              (actuar)
+detect hardware  →  decide packages  →  run the installation
+      (read)              (think)              (act)
 ```
 
-| Carpeta | Rol |
+| Folder | Role |
 |---|---|
-| `detect/` | Módulos independientes que leen el sistema y emiten hechos en `KEY=VALUE` |
-| `decide/` | Árbol de decisión: mapea hechos → paquetes, con la razón de cada uno |
-| `lib/` | Helpers: logging (`common.sh`) y búsqueda de paquetes en la API oficial (`api.sh`) |
-| `output/` | Resultados generados: hechos, lista de paquetes y reporte explicado |
+| `detect/` | Standalone modules that read the system and emit facts as `KEY=VALUE` |
+| `decide/` | Decision tree: maps facts → packages, with the reason for each one |
+| `lib/` | Helpers: logging (`common.sh`) and package search on the official API (`api.sh`) |
+| `output/` | Generated results: facts, package list and explained report |
 
-Cada script de `detect/` se puede correr solo para ver qué detecta:
+Each `detect/` script can be run on its own to see what it detects:
 
 ```bash
-./detect/gpu.sh     # → GPU_VENDOR=nvidia (o amd / intel / unknown)
-./detect/virt.sh    # → VIRT=none (o kvm, virtualbox, wsl...)
+./detect/gpu.sh     # → GPU_VENDOR=nvidia (or amd / intel / unknown)
+./detect/virt.sh    # → VIRT=none (or kvm, virtualbox, wsl...)
 ```
 
-## Uso
+## Usage
 
 ```bash
-./main.sh detect        # hechos de hardware → output/facts.txt
-./main.sh decide        # árbol de decisión → output/packages.txt + report.md
-./main.sh search hyprland   # busca paquetes en la API de archlinux.org
-./main.sh check         # valida la lista contra los repos oficiales (necesita red)
+./main.sh detect        # hardware facts → output/facts.txt
+./main.sh decide        # decision tree → output/packages.txt + report.md
+./main.sh search hyprland   # search packages on the archlinux.org API
+./main.sh check         # validate the list against the official repos (needs network)
 ./main.sh all           # detect + decide + check
+./main.sh clean         # remove generated output files
 ```
 
-El reporte (`output/report.md`) es lo importante: te dice **por qué** se
-eligió cada paquete. Ejemplo: `GPU_VENDOR=nvidia` → `nvidia-utils` "GPU
-NVIDIA → utilidades y libGL".
+The report (`output/report.md`) is the important part: it tells you **why**
+each package was chosen. Example: `GPU_VENDOR=nvidia` → `nvidia-utils`
+"NVIDIA GPU → utilities and libGL".
 
-## Cómo funcionan las búsquedas de paquetes
+## How package searches work
 
-Hay dos niveles, y este proyecto usa el segundo:
+There are two levels, and this project uses the second one:
 
-1. **`pacman -Ss <nombre>`** — busca en la base de datos local de paquetes
-   (solo útil ya dentro de un sistema instalado, tras `pacman -Sy`).
-2. **API oficial de archlinux.org** — `lib/api.sh` consulta
-   `https://archlinux.org/packages/search/json/?q=<nombre>` y comprueba si
-   el paquete existe en los repos oficiales y en qué repo/versión. Es lo
-   que usamos en `./main.sh check` para validar la lista antes de instalar.
+1. **`pacman -Ss <name>`** — searches the local package database (only
+   useful inside an installed system, after `pacman -Sy`).
+2. **Official archlinux.org API** — `lib/api.sh` queries
+   `https://archlinux.org/packages/search/json/?q=<name>` and checks whether
+   the package exists in the official repos and in which repo/version. That's
+   what `./main.sh check` uses to validate the list before installing.
 
-El JSON se parsea con `grep` a propósito: para comprobar existencia es
-suficiente. La herramienta correcta para JSON de verdad es `jq`.
+The JSON is parsed with `grep` on purpose: for checking existence that's
+enough. The right tool for real JSON is `jq`.
 
-## Filosofía del árbol de decisión
+## Decision tree philosophy
 
-En `decide/packages.sh` cada regla es **"si (hecho) entonces (paquete) por
-(razón)"**:
+In `decide/packages.sh` every rule is **"if (fact) then (package) because
+(reason)"**:
 
 ```bash
 case "$GPU_VENDOR" in
-  nvidia) add nvidia-utils "GPU NVIDIA → utilidades y libGL" ;;
+  nvidia) add nvidia-utils "NVIDIA GPU → utilities and libGL" ;;
 esac
 ```
 
-Añadir conocimiento nuevo = añadir un `case`. Ejemplos de reglas ya
-incluidas:
+Adding new knowledge = adding a `case`. Examples of rules already included:
 
-- CPU Intel/AMD → `intel-ucode` / `amd-ucode`
-- GPU NVIDIA/AMD/Intel → drivers correspondientes
-- VM detectada (`systemd-detect-virt`) → drivers genéricos, no específicos
-- Bluetooth presente → `bluez bluez-utils`
-- Portátil (batería) → `brightnessctl tlp`
-- SSD/NVMe → recomendación btrfs; HDD → recomendación ext4
+- Intel/AMD CPU → `intel-ucode` / `amd-ucode`
+- NVIDIA/AMD/Intel GPU → corresponding drivers
+- VM detected (`systemd-detect-virt`) → generic drivers, not specific ones
+- Bluetooth present → `bluez bluez-utils`
+- Laptop (battery) → `brightnessctl tlp`
+- SSD/NVMe → btrfs recommendation; HDD → ext4 recommendation
 
-## Roadmap (próximas versiones)
+## Roadmap (upcoming versions)
 
-1. **Particionado**: usar `FIRMWARE` (uefi/bios), `DISK_*` y `RAM_GB` para
-   generar la tabla de particiones (EFI + root, tamaño de swap).
-2. **Instalación real**: `pacstrap`, `arch-chroot`, `mkinitcpio`,
-   bootloader (systemd-boot para UEFI, GRUB para BIOS), usuario, locale.
-3. **Perfiles**: además de Hyprland, soportar GNOME/KDE/i3, y perfiles
+1. **Partitioning**: use `FIRMWARE` (uefi/bios), `DISK_*` and `RAM_GB` to
+   generate the partition table (EFI + root, swap size).
+2. **Real installation**: `pacstrap`, `arch-chroot`, `mkinitcpio`,
+   bootloader (systemd-boot for UEFI, GRUB for BIOS), user, locale.
+3. **Profiles**: besides Hyprland, support GNOME/KDE/i3, and profiles
    (dev, gaming, minimal).
-4. **Detección más fina**: elegir entre `nvidia` y `nvidia-open` según el
-   modelo exacto de GPU (se puede leer del ID de dispositivo PCI).
+4. **Finer detection**: choose between `nvidia` and `nvidia-open` based on
+   the exact GPU model (readable from the PCI device ID).
 
-Para probar la instalación completa sin romper tu sistema: **QEMU**.
+To test the full installation without breaking your system: **QEMU**.
 ```bash
-# desde el ISO de Arch montado en una VM
+# from the Arch ISO mounted in a VM
 qemu-system-x86_64 -enable-kvm -cdrom archlinux.iso -boot d -m 4G
 ```
 
-## Referencias
+## References
 
-- [archinstall](https://github.com/archlinux/archinstall) — instalador
-  oficial (Python): el árbol de decisión real más grande que existe.
+- [archinstall](https://github.com/archlinux/archinstall) — official
+  installer (Python): the biggest real decision tree that exists.
 - [Arch Wiki: Installation guide](https://wiki.archlinux.org/title/Installation_guide)
 - [Arch Wiki: pacman](https://wiki.archlinux.org/title/Pacman)
-- [API de paquetes de archlinux.org](https://wiki.archlinux.org/title/DeveloperWiki:Package_search)
+- [archlinux.org package API](https://wiki.archlinux.org/title/DeveloperWiki:Package_search)
