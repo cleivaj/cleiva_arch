@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 #Detect cpu vendor
 
--set u
+set -u
 
 VENDOR=$(grep -m1 'vendor_id' /proc/cpuinfo | awk '{print $NF}')
 
