@@ -10,7 +10,7 @@ else
     echo "NET_WIFI=no"
 fi
 
-if ping -c1 -W2 1.1.1.1 >/dev/null 2>&1; then
+if curl -s --max-time 5 -o /dev/null https://1.1.1.1; then
     echo "NET_ONLINE=yes"
 else
     echo "NET_ONLINE=no"
