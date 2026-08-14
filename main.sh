@@ -4,6 +4,7 @@
 
 set -uo pipefail
 source lib/common.sh
+source lib/api.sh
 
 usage() {
     echo "Usage: $0 <detect|decide|search|check|all>"
@@ -32,11 +33,66 @@ cmd_decide() {
     done | sort >output/packages.txt
     info "Packages decided: $(wc -l <output/packages.txt)"
     cat output/packages.txt
+
+    cat >output/report.md <<'EOF'
+# Installation Report
+ 
+## Detected facts
+ 
+| Fact | Value |
+|---|---|
+EOF
+    while IFS='=' read -r key value; do
+        echo "| $key | $value |"
+    done <output/facts.txt >>output/report.md
+
+    cat >>output/report.md <<'EOF'
+ 
+## Packages and reasons
+ 
+| Package | Reason |
+|---|---|
+EOF
+    for p in "${!PACKAGES[@]}"; do
+        echo "| $p | ${PACKAGES[$p]} |"
+    done | sort >>output/report.md
+
+}
+
+cmd_search() {
+    local q="$1" json
+    json=$(search_pkg "$q") || {
+        error "Search failed"
+        return 1
+    }
+    echo "$json" | grep -oE '"pkgname": "[^"]*"|"pkgver": "[^"]*"|"repo": "[^"]*"'
+}
+
+cmd_check() {
+    local total=0 ok=0 bad=0 pkg
+    while read -r pkg; do
+        total=$((total + 1))
+        if pkg_exists "$pkg"; then
+            ok=$((ok + 1))
+        else
+            bad=$((bad + 1))
+            warn "$pkg NOT FOUND"
+        fi
+    done <output/packages.txt
+
+    if [[ $bad -gt 0 ]]; then
+        error "$bad of $total packages missing (consider AUR)"
+        return 1
+    fi
+
+    log "All packages exist ($ok/$total)"
 }
 
 case "$1" in
 detect) cmd_detect ;;
 decide) cmd_decide ;;
+search) cmd_search "$2" ;;
+check) cmd_check ;;
 *)
     usage
     exit 1
