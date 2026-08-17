@@ -13,7 +13,7 @@ build_install_plan() {
         return 1
     fi
 
-    build_partitions >/dev/null # side effects only: fills DISK, FS_ROOT, SWAP_GB, PART_*
+    build_partitions >/dev/null # fills LAYOUT_ENTRIES, DISK, FS_ROOT, PART_*
 
     local ucode=""
     case "${CPU_VENDOR:-unknown}" in
@@ -22,18 +22,25 @@ build_install_plan() {
     esac
 
     # Decided packages (from the tree) + what any installer needs
-    local pkgs extra="linux-firmware grub"
+    local pkgs extra="linux-firmware grub" entry=""
     pkgs=$(tr '\n' ' ' < output/packages.txt)
     [[ "${FIRMWARE:-uefi}" == "uefi" ]] && extra+=" efibootmgr"
-    [[ "$FS_ROOT" == "btrfs" ]] && extra+=" btrfs-progs"
+    if [[ "$FS_ROOT" == "btrfs" ]]; then
+        extra+=" btrfs-progs"
+    else
+        # any btrfs data partition needs the tools too
+        for entry in "${LAYOUT_ENTRIES[@]}"; do
+            if [[ "$entry" == *"|btrfs|"* ]]; then
+                extra+=" btrfs-progs"
+                break
+            fi
+        done
+    fi
 
     # Locale/hostname/timezone: from facts.txt or env, safe defaults otherwise
     local tz="${TIMEZONE:-UTC}"
     local locale="${LOCALE:-en_US.UTF-8}"
     local hostname="${HOST_NAME:-arch}"
-
-    local mkfs_cmd="mkfs.ext4 -F"
-    [[ "$FS_ROOT" == "btrfs" ]] && mkfs_cmd="mkfs.btrfs -f"
 
     local bootloader_install="grub-install --target=x86_64-efi --efi-directory=/efi --bootloader-id=GRUB"
     [[ "${FIRMWARE:-uefi}" == "bios" ]] && bootloader_install="grub-install --target=i386-pc $DISK"
@@ -41,6 +48,48 @@ build_install_plan() {
     local services="NetworkManager"
     [[ "${HAS_BLUETOOTH:-no}" == "yes" ]] && services+=" bluetooth"
     [[ "${HAS_BATTERY:-no}" == "yes" ]] && services+=" tlp"
+
+    # --- Partition commands, data-driven from the layout ---
+    local suffix; suffix=$(partition_suffix)
+    local sgdisk_plan="" mkfs_plan="" mount_plan=""
+    local i=1 mp="" f="" size="" part="" cmd=""
+
+    # mount / first: children need the root mounted before them
+    for entry in "${LAYOUT_ENTRIES[@]}"; do
+        IFS='|' read -r mp f size <<<"$entry"
+        if [[ "$mp" == "/" ]]; then
+            printf -v mount_plan '%s%s' "$mount_plan" "mount \"$DISK${suffix}${i}\" /mnt
+"
+        fi
+        i=$((i + 1))
+    done
+
+    i=1
+    for entry in "${LAYOUT_ENTRIES[@]}"; do
+        IFS='|' read -r mp f size <<<"$entry"
+        part="$DISK${suffix}${i}"
+
+        printf -v sgdisk_plan '%s%s' "$sgdisk_plan" "sgdisk -n${i}:0:$(sgdisk_size "$size") -t${i}:$(type_code_for "$mp") \"$DISK\"   # ${mp}
+"
+
+        cmd=$(mkfs_cmd_for "$f")
+        if [[ -n "$cmd" ]]; then
+            printf -v mkfs_plan '%s%s' "$mkfs_plan" "$cmd \"$part\"
+"
+        fi
+
+        case "$mp" in
+        "[swap]") printf -v mount_plan '%s%s' "$mount_plan" "swapon \"$part\"
+" ;;
+        "/") : ;; # mounted first
+        "/efi") printf -v mount_plan '%s%s' "$mount_plan" "mount --mkdir \"$part\" /mnt/efi
+" ;;
+        "[bios_grub]") : ;; # grub writes here, nothing to mount
+        *) printf -v mount_plan '%s%s' "$mount_plan" "mount --mkdir \"$part\" /mnt${mp}
+" ;;
+        esac
+        i=$((i + 1))
+    done
 
     cat <<EOF
 #!/usr/bin/env bash
@@ -61,47 +110,15 @@ fi
 
 # 1. Partitions (${FIRMWARE:-uefi})
 sgdisk --zap-all "$DISK"
-EOF
-    case "${FIRMWARE:-uefi}" in
-    uefi)
-        cat <<EOF
-sgdisk -n1:0:+512M -t1:ef00 "$DISK"         # EFI system partition
-sgdisk -n2:0:+${SWAP_GB}G -t2:8200 "$DISK"  # swap
-sgdisk -n3:0:0 -t3:8300 "$DISK"             # root (rest)
-EOF
-        ;;
-    bios)
-        cat <<EOF
-sgdisk -n1:0:+1M -t1:ef02 "$DISK"           # BIOS boot (grub)
-sgdisk -n2:0:+${SWAP_GB}G -t2:8200 "$DISK"  # swap
-sgdisk -n3:0:0 -t3:8300 "$DISK"             # root (rest)
-EOF
-        ;;
-    esac
-    cat <<EOF
-
+${sgdisk_plan}
 # 2. Filesystems
-$mkfs_cmd "$PART_ROOT"
-mkswap "$PART_SWAP"
-EOF
-    if [[ "${FIRMWARE:-uefi}" == "uefi" ]]; then
-        echo "mkfs.fat -F32 \"$PART_EFI\""
-    fi
-    cat <<EOF
-
+${mkfs_plan}
 # 3. Mount
-mount "$PART_ROOT" /mnt
-swapon "$PART_SWAP"
-EOF
-    if [[ "${FIRMWARE:-uefi}" == "uefi" ]]; then
-        echo "mount --mkdir \"$PART_EFI\" /mnt/efi"
-    fi
-    cat <<EOF
-
+${mount_plan}
 # 4. Base system + decided packages
 pacstrap -K /mnt ${pkgs}${extra}
 
-# 5. fstab
+# 5. fstab (all mounts above must exist)
 genfstab -U /mnt >> /mnt/etc/fstab
 
 # 6. Chroot configuration
