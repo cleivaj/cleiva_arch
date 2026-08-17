@@ -63,31 +63,40 @@ You'll see a menu like this:
 
 #### Option A: Full Auto (Easiest)
 1. Choose `1` - Full Auto Install
-2. Select profile:
+2. **System Configuration:**
+   - Hostname: Enter your computer name (default: `arch`)
+   - Keyboard: Select your layout (default: auto-detected or `us`)
+   - Locale: Choose language (default: `en_US.UTF-8`)
+   - Timezone: Keep detected or choose from list
+3. Select profile:
    - **Hyprland**: Complete tiling WM setup (recommended)
    - **Minimal**: Base system only
    - **Custom**: Choose everything yourself
-3. Select extra packages (SPACE to select):
+4. Select extra packages (SPACE to select):
    - Development: Node.js, MariaDB, Docker
    - Tools: Neovim, Tmux, VS Code
+   - Gaming: Wine, Steam
+   - Multimedia: VLC, GIMP
    - Browsers: Firefox, Chromium
-4. Choose partition layout:
+5. Choose partition layout:
    - **Auto**: EFI + swap + root (recommended)
    - **Custom**: Interactive editor
    - **Manual**: Edit `output/layout.txt`
-5. Done! Script is generated.
+6. Done! Script is generated.
 
 #### Option B: Step by Step
 1. Choose `2` - Detect Hardware
    - Scans your system
    - Saves to `output/facts.txt`
-2. Choose `3` - Configure Packages
+2. Choose `3` - Configure System
+   - Set hostname, keyboard, locale, timezone
+3. Choose `4` - Configure Packages
    - Select profile and extras
-3. Choose `4` - Configure Partitions
+4. Choose `5` - Configure Partitions
    - Set up disk layout
-4. Choose `6` - Validate (optional but recommended)
+5. Choose `7` - Validate (optional but recommended)
    - Checks all packages exist
-5. Choose `7` - Generate Install Script
+6. Choose `8` - Generate Install Script
    - Creates `output/install.sh`
 
 ### Step 4: Review the Script
@@ -124,15 +133,19 @@ The script will:
 
 Time: ~15-30 minutes depending on internet speed
 
-### Step 6: Reboot & Enjoy
+### Step 6: Post-Installation Configuration
+
+After rebooting, login and configure:
 
 ```bash
-reboot
-```
+# Configure Hyprland keyboard (matches your selection)
+~/arch_installer/postinstall/hyprland-keyboard.sh
 
-Login and start Hyprland:
-```bash
-Hyprland
+# If you installed Wine
+~/arch_installer/postinstall/wine-setup.sh
+
+# If you installed Steam
+~/arch_installer/postinstall/steam-setup.sh
 ```
 
 ---

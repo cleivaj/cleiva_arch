@@ -43,10 +43,11 @@ build_install_plan() {
         done
     fi
 
-    # Locale/hostname/timezone: from facts.txt or env, safe defaults otherwise
+    # Locale/hostname/timezone/keymap: from facts.txt or env, safe defaults otherwise
     local tz="${TIMEZONE:-UTC}"
     local locale="${LOCALE:-en_US.UTF-8}"
     local hostname="${HOST_NAME:-arch}"
+    local keymap="${KEYMAP:-us}"
 
     local bootloader_install="grub-install --target=x86_64-efi --efi-directory=/efi --bootloader-id=GRUB"
     [[ "${FIRMWARE:-uefi}" == "bios" ]] && bootloader_install="grub-install --target=i386-pc $DISK"
@@ -141,6 +142,7 @@ echo "$locale UTF-8" > /etc/locale.gen
 locale-gen
 echo "LANG=$locale" > /etc/locale.conf
 echo "$hostname" > /etc/hostname
+echo "KEYMAP=$keymap" > /etc/vconsole.conf
 EOF
 
     # Add multilib if needed
