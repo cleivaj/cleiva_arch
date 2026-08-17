@@ -1,47 +1,63 @@
 # arch_installer
 
-**Educational** Arch Linux installer: detects your hardware and decides which
-packages an installation with Hyprland would need. It doesn't install
-anything — the first version is just **detection + decision** so you
-understand how each piece works under the hood.
+**Educational** Arch Linux installer: detects your hardware, decides which
+packages an installation with Hyprland would need, and generates the
+partition plan and the installation script. It never touches your disks —
+the generated script is meant to run **inside a VM (QEMU)**, and it refuses
+to run anywhere else.
+
+The goal is to understand how each piece works under the hood:
+
+```
+detect hardware  →  decide packages  →  generate install
+      (read)            (think)             (act)
+```
 
 ## How it works
 
-An installer isn't magic. It's this:
-
-```
-detect hardware  →  decide packages  →  run the installation
-      (read)              (think)              (act)
-```
-
 | Folder | Role |
 |---|---|
-| `detect/` | Standalone modules that read the system and emit facts as `KEY=VALUE` |
-| `decide/` | Decision tree: maps facts → packages, with the reason for each one |
+| `detect/` | Standalone modules that read the system and emit facts as `KEY=VALUE` (11 modules: firmware, cpu, ram, virt, battery, bluetooth, net, audio, disk, gpu, timezone) |
+| `decide/` | Decisions: `packages.sh` (facts → packages + reason), `partition.sh` (facts → partition layout), `install.sh` (everything → install script) |
 | `lib/` | Helpers: logging (`common.sh`) and package search on the official API (`api.sh`) |
-| `output/` | Generated results: facts, package list and explained report |
+| `output/` | Generated results: facts, package list, report, partition plan, install script |
 
 Each `detect/` script can be run on its own to see what it detects:
 
 ```bash
-./detect/gpu.sh     # → GPU_VENDOR=nvidia (or amd / intel / unknown)
-./detect/virt.sh    # → VIRT=none (or kvm, virtualbox, wsl...)
+./detect/gpu.sh      # → GPU_VENDOR=nvidia (or amd / intel / unknown)
+./detect/disk.sh     # → DISK_NAME=nvme0n1 (never the USB boot stick)
+./detect/timezone.sh # → TIMEZONE=Europe/Lisbon
 ```
 
 ## Usage
 
 ```bash
-./main.sh detect        # hardware facts → output/facts.txt
-./main.sh decide        # decision tree → output/packages.txt + report.md
+./main.sh detect       # hardware facts → output/facts.txt
+./main.sh decide       # decision tree → output/packages.txt + report.md
 ./main.sh search hyprland   # search packages on the archlinux.org API
-./main.sh check         # validate the list against the official repos (needs network)
-./main.sh all           # detect + decide + check
-./main.sh clean         # remove generated output files
+./main.sh check        # validate the list against the official repos (needs network)
+./main.sh partition    # partition plan → output/partition.txt
+./main.sh install      # full install script → output/install.sh
+./main.sh all          # detect + decide + check
+./main.sh clean        # remove generated output files
 ```
 
-The report (`output/report.md`) is the important part: it tells you **why**
-each package was chosen. Example: `GPU_VENDOR=nvidia` → `nvidia-utils`
-"NVIDIA GPU → utilities and libGL".
+`partition` and `install` ask which disk to use when several candidates
+were detected (`DISK_CANDIDATES` in facts). The choice is saved back to
+`output/facts.txt`, so you're asked once, not once per command.
+
+Typical flow inside the Arch ISO (in QEMU):
+
+```bash
+./main.sh all          # detect + validate the package list
+./main.sh install      # generate output/install.sh
+# review it, then run it:
+bash output/install.sh
+```
+
+The report (`output/report.md`) tells you **why** each package was chosen.
+Example: `GPU_VENDOR=nvidia` → `nvidia-utils` "GPU NVIDIA => drivers + libGL".
 
 ## How package searches work
 
@@ -59,40 +75,93 @@ enough. The right tool for real JSON is `jq`.
 
 ## Decision tree philosophy
 
-In `decide/packages.sh` every rule is **"if (fact) then (package) because
-(reason)"**:
+Every rule is **"if (fact) then (decision) because (reason)"**:
 
 ```bash
 case "$GPU_VENDOR" in
-  nvidia) add nvidia-utils "NVIDIA GPU → utilities and libGL" ;;
+  nvidia) add nvidia-utils "GPU NVIDIA => drivers + libGL" ;;
 esac
 ```
 
-Adding new knowledge = adding a `case`. Examples of rules already included:
+### Packages (`decide/packages.sh`)
 
-- Intel/AMD CPU → `intel-ucode` / `amd-ucode`
-- NVIDIA/AMD/Intel GPU → corresponding drivers
-- VM detected (`systemd-detect-virt`) → generic drivers, not specific ones
+- Base: `base base-devel linux git nano networkmanager sudo`
+- CPU: Intel → `intel-ucode`, AMD → `amd-ucode`
+- GPU (bare metal only; VMs get generic `mesa`):
+  AMD → `mesa vulkan-radeon`, NVIDIA → `nvidia-utils`, Intel → `mesa
+  vulkan-intel`, unknown → `mesa` fallback
 - Bluetooth present → `bluez bluez-utils`
 - Laptop (battery) → `brightnessctl tlp`
-- SSD/NVMe → btrfs recommendation; HDD → ext4 recommendation
+- Audio → `pipewire pipewire-pulse wireplumber`
+- Profile Hyprland → hyprland, waybar, kitty, grim, slurp, fonts, ...
+- Duplicates are impossible: packages live in an associative array (`PACKAGES`), one reason per package.
+
+### Partition plan (`decide/partition.sh`)
+
+- `FIRMWARE=uefi` → EFI 512M + swap + root; `bios` → BIOS boot 1M + swap + root
+- Swap: ≤2G RAM → 2x, ≤8G → 1x, >8G → half (always at least 2G)
+- SSD/NVMe → `btrfs`, HDD → `ext4`
+- Partition names get a `p` only when the disk needs it (`nvme0n1p1`, `sda1`)
+
+### Install script (`decide/install.sh`)
+
+- `output/install.sh` is generated, **never executed here**. It:
+  1. Refuses to run outside a VM (`systemd-detect-virt`) and on removable
+     media — your USB install stick is untouchable.
+  2. Partitions with `sgdisk`, formats (`btrfs`/`ext4`/`vfat`), mounts.
+  3. `pacstrap`s the **decided package list** (from `output/packages.txt`)
+     plus `linux-firmware`, `grub`, `efibootmgr` (UEFI only) and
+     `btrfs-progs` (btrfs only).
+  4. Configures locale and timezone (`locale-gen`, `locale.conf` — the
+     timezone comes from the `TIMEZONE` fact), hostname and services
+     (NetworkManager, plus `bluetooth`/`tlp` when detected).
+  5. Installs GRUB (x86_64-efi for UEFI, i386-pc + bios_grub for BIOS).
+  6. Asks for a root password and creates a sudo user (wheel).
+
+  Overrides: `TIMEZONE`, `LOCALE`, `HOST_NAME` come from
+  `output/facts.txt` or the environment (defaults: `UTC`, `en_US.UTF-8`,
+  `arch`).
+
+## Detection details worth knowing
+
+- `detect/disk.sh` **never picks the USB stick you booted from**: it
+  excludes the boot device (found via `findmnt /run/archiso/bootmnt` or the
+  `ARCH_*` label), USB buses and removable disks (RM flag), plus
+  zram/ram/loop devices. It emits `DISK_CANDIDATES` (comma-separated) and
+  picks the first as default `DISK_NAME`; if several remain, `partition`/
+  `install` ask you interactively.
+- `detect/gpu.sh` scans **all** display controllers and prefers the discrete
+  GPU (NVIDIA > AMD > Intel), so hybrid laptops detect correctly.
+- Every module degrades gracefully: if a command or sysfs path is missing it
+  prints a safe default (`unknown`, `no`, `0`...) instead of failing.
+
+## Testing in QEMU
+
+The full installation **must** be tested in a VM, never on your machine:
+
+```bash
+# 1. Boot the Arch ISO in QEMU (UEFI firmware → OVMF)
+qemu-system-x86_64 -enable-kvm -m 4G -cdrom archlinux.iso -boot d \
+    -bios /usr/share/ovmf/x64/OVMF.fd     # or: -drive if=pflash=...
+
+# 2. Inside the ISO
+git clone <your-repo> && cd arch_installer
+./main.sh all
+./main.sh install
+bash output/install.sh   # review it first!
+```
 
 ## Roadmap (upcoming versions)
 
-1. **Partitioning**: use `FIRMWARE` (uefi/bios), `DISK_*` and `RAM_GB` to
-   generate the partition table (EFI + root, swap size).
-2. **Real installation**: `pacstrap`, `arch-chroot`, `mkinitcpio`,
-   bootloader (systemd-boot for UEFI, GRUB for BIOS), user, locale.
-3. **Profiles**: besides Hyprland, support GNOME/KDE/i3, and profiles
+1. **Profiles**: besides Hyprland, support GNOME/KDE/i3, and profiles
    (dev, gaming, minimal).
-4. **Finer detection**: choose between `nvidia` and `nvidia-open` based on
-   the exact GPU model (readable from the PCI device ID).
-
-To test the full installation without breaking your system: **QEMU**.
-```bash
-# from the Arch ISO mounted in a VM
-qemu-system-x86_64 -enable-kvm -cdrom archlinux.iso -boot d -m 4G
-```
+2. **Finer GPU selection**: choose `nvidia` vs `nvidia-open` based on the
+   exact model (readable from `lspci -nn`), and handle hybrid setups
+   (both vendors).
+3. **Layout editor**: choose partitions beyond the defaults (separate
+   `/home`, custom sizes, swap file instead of partition...).
+4. **Config file**: persist `LOCALE`/`HOST_NAME`/`TIMEZONE`/disk choices
+   instead of env vars.
 
 ## References
 

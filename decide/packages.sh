@@ -30,13 +30,14 @@ build_packages() {
         case "$GPU_VENDOR" in
         amd)
             add mesa "GPU AMD => Drivers +  libGL"
-            add vulkan-radeon "vulcan"
+            add vulkan-radeon "Vulkan"
             ;;
         nvidia) add nvidia-utils "GPU NVIDIA => drivers + libGL" ;;
         intel)
             add mesa "GPU Intel => drivers"
             add vulkan-intel "GPU Intel => Vulkan"
             ;;
+        unknown) add mesa "GPU unknown => generic fallback" ;;
         esac
     else
         add mesa "VM => generic drivers"
@@ -46,7 +47,7 @@ build_packages() {
     [[ "$HAS_BLUETOOTH" == "yes" ]] && add bluez "Bluetooth" && add bluez-utils "Bluetooth utils"
 
     # Battery
-    [[ "$HAS_BATTERY" == "yes" ]] && add brightnessctl "bight" && add tlp "eco-mode"
+    [[ "$HAS_BATTERY" == "yes" ]] && add brightnessctl "brightness" && add tlp "eco-mode"
 
     # Audio
     add pipewire "Audio"

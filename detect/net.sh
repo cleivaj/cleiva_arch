@@ -10,7 +10,7 @@ else
     echo "NET_WIFI=no"
 fi
 
-if curl -s --max-time 5 -o /dev/null https://1.1.1.1; then
+if command -v curl >/dev/null 2>&1 && curl -s --max-time 5 -o /dev/null https://1.1.1.1; then
     echo "NET_ONLINE=yes"
 else
     echo "NET_ONLINE=no"
