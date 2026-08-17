@@ -21,6 +21,12 @@ build_install_plan() {
     intel) ucode="intel-ucode" ;;
     esac
 
+    # Check if multilib is needed (Wine, Steam, or any lib32-* packages)
+    local need_multilib=0
+    if grep -qE '^(wine|steam|lib32-)' output/packages.txt; then
+        need_multilib=1
+    fi
+
     # Decided packages (from the tree) + what any installer needs
     local pkgs extra="linux-firmware grub" entry=""
     pkgs=$(tr '\n' ' ' < output/packages.txt)
@@ -48,6 +54,11 @@ build_install_plan() {
     local services="NetworkManager"
     [[ "${HAS_BLUETOOTH:-no}" == "yes" ]] && services+=" bluetooth"
     [[ "${HAS_BATTERY:-no}" == "yes" ]] && services+=" tlp"
+    
+    # Add docker service if docker is in package list
+    if grep -q '^docker$' output/packages.txt; then
+        services+=" docker"
+    fi
 
     # --- Partition commands, data-driven from the layout ---
     local suffix; suffix=$(partition_suffix)
@@ -122,7 +133,7 @@ pacstrap -K /mnt ${pkgs}${extra}
 genfstab -U /mnt >> /mnt/etc/fstab
 
 # 6. Chroot configuration
-arch-chroot /mnt /bin/bash -c '
+arch-chroot /mnt /bin/bash <<'CHROOT_EOF'
 set -euo pipefail
 ln -sf /usr/share/zoneinfo/$tz /etc/localtime
 hwclock --systohc
@@ -130,6 +141,20 @@ echo "$locale UTF-8" > /etc/locale.gen
 locale-gen
 echo "LANG=$locale" > /etc/locale.conf
 echo "$hostname" > /etc/hostname
+EOF
+
+    # Add multilib if needed
+    if ((need_multilib)); then
+        cat <<'EOF'
+# Enable multilib repository for 32-bit support (Wine, Steam)
+if ! grep -q "^\[multilib\]" /etc/pacman.conf; then
+    printf "\n[multilib]\nInclude = /etc/pacman.d/mirrorlist\n" >> /etc/pacman.conf
+    pacman -Sy --noconfirm
+fi
+EOF
+    fi
+
+    cat <<EOF
 systemctl enable $services
 $bootloader_install
 grub-mkconfig -o /boot/grub/grub.cfg
@@ -142,6 +167,6 @@ if [[ -n "\$USERNAME" ]]; then
     passwd "\$USERNAME"
     sed -i "s/^# %wheel ALL=(ALL:ALL) ALL/%wheel ALL=(ALL:ALL) ALL/" /etc/sudoers
 fi
-'
+CHROOT_EOF
 EOF
 }

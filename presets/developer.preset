@@ -1,0 +1,21 @@
+# Developer Preset
+# Usage: ./init.sh --preset presets/developer.preset
+#
+# This preset configures a development-focused installation with file manager
+
+# Profile selection
+PROFILE="hyprland"
+
+# Extra development packages
+EXTRA_PACKAGES="nodejs npm mariadb docker docker-compose code neovim tmux firefox"
+
+# Partition layout (optional, will use auto if not specified)
+# LAYOUT="
+# [swap] linux-swap 8G
+# /home btrfs 100G
+# / btrfs rest
+# "
+
+# Locale and timezone (will auto-detect if not specified)
+# LOCALE="en_US.UTF-8"
+# TIMEZONE="Europe/Lisbon"

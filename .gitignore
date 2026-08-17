@@ -1,2 +1,25 @@
-output/
-TODO.md
+# Generated output files
+output/*.txt
+output/*.md
+output/*.sh
+
+# Keep directory structure
+!output/.gitkeep
+
+# Logs
+Install-Logs/
+*.log
+
+# Development notes (keep your private version)
+# TODO.md
+
+# Temporary files
+*.swp
+*.swo
+*~
+.DS_Store
+
+# User presets (optional - uncomment to keep presets private)
+# presets/*.preset
+# !presets/developer.preset
+# !presets/minimal.preset

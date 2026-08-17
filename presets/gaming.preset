@@ -1,0 +1,21 @@
+# Gaming Preset
+# Usage: ./init.sh --preset presets/gaming.preset
+#
+# This preset configures a gaming-focused installation
+
+# Profile selection
+PROFILE="hyprland"
+
+# Gaming + multimedia packages
+EXTRA_PACKAGES="steam wine vlc firefox chromium"
+
+# Partition layout - more space for games
+LAYOUT="
+[swap] linux-swap auto
+/home btrfs 200G
+/ btrfs rest
+"
+
+# Locale and timezone (will auto-detect if not specified)
+# LOCALE="en_US.UTF-8"
+# TIMEZONE="Europe/Lisbon"

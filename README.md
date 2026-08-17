@@ -1,17 +1,26 @@
 # arch_installer
 
-**Educational** Arch Linux installer: detects your hardware, decides which
-packages an installation with Hyprland would need, and generates the
-partition plan and the installation script. It never touches your disks —
-the generated script is meant to run **inside a VM (QEMU)**, and it refuses
-to run anywhere else.
+**Interactive & Educational** Arch Linux installer: detects your hardware, lets you
+choose packages and partitions through friendly menus, and generates a complete
+installation script. It never touches your disks — the generated script is meant
+to run **inside a VM (QEMU/VirtualBox)**, and it refuses to run anywhere else.
 
-The goal is to understand how each piece works under the hood:
+The goal is to understand how each piece works under the hood, with a user-friendly
+interface inspired by JaKooLit's installer:
 
 ```
-detect hardware  →  decide packages  →  generate install
-      (read)            (think)             (act)
+detect hardware  →  choose packages  →  configure layout  →  generate install
+      (read)           (decide)              (plan)              (act)
 ```
+
+## 🚀 Quick Start (One Command)
+
+```bash
+git clone <your-repo> && cd arch_installer
+./init.sh
+```
+
+That's it! The interactive menu guides you through everything.
 
 ## How it works
 
@@ -30,7 +39,32 @@ Each `detect/` script can be run on its own to see what it detects:
 ./detect/timezone.sh # → TIMEZONE=Europe/Lisbon
 ```
 
-## Usage
+## 📋 Interactive Menu Features
+
+The `./init.sh` script provides:
+
+1. **🚀 Full Auto Install** - Complete workflow from detection to script generation
+2. **🔍 Detect Hardware** - Scan your system (11 detection modules)
+3. **📦 Configure Packages** - Choose profile (Hyprland/minimal/custom) + extras:
+   - Development: Node.js, npm, MariaDB, PostgreSQL
+   - Tools: Docker, VS Code, Neovim, Tmux
+   - Browsers: Firefox, Chromium
+4. **💾 Configure Partitions** - Auto, custom interactive, or manual layout
+5. **📊 View Report** - See detection results and package justifications
+6. **🧪 Validate Packages** - Check all packages exist in official repos
+7. **📝 Generate Install Script** - Create the final `output/install.sh`
+8. **🧹 Clean Output** - Remove generated files
+
+## 🎯 Usage Modes
+
+### Interactive Mode (Recommended)
+```bash
+./init.sh
+# Follow the menus - that's it!
+```
+
+### Manual Mode (Advanced)
+You can still use the original commands:
 
 ```bash
 ./main.sh detect       # hardware facts → output/facts.txt
@@ -43,18 +77,28 @@ Each `detect/` script can be run on its own to see what it detects:
 ./main.sh clean        # remove generated output files
 ```
 
-`partition` and `install` ask which disk to use when several candidates
-were detected (`DISK_CANDIDATES` in facts). The choice is saved back to
-`output/facts.txt`, so you're asked once, not once per command.
+### Typical Workflow in VirtualBox/QEMU
 
-Typical flow inside the Arch ISO (in QEMU):
-
-```bash
-./main.sh all          # detect + validate the package list
-./main.sh install      # generate output/install.sh
-# review it, then run it:
-bash output/install.sh
-```
+1. **Boot Arch ISO in VM**
+2. **Clone the repo:**
+   ```bash
+   pacman -Sy git --noconfirm
+   git clone https://github.com/YOUR_USER/arch_installer.git
+   cd arch_installer
+   ```
+3. **Run interactive installer:**
+   ```bash
+   ./init.sh
+   ```
+4. **Choose "Full Auto Install"** and follow prompts
+5. **Review the generated script:**
+   ```bash
+   less output/install.sh
+   ```
+6. **Execute it:**
+   ```bash
+   bash output/install.sh
+   ```
 
 The report (`output/report.md`) tells you **why** each package was chosen.
 Example: `GPU_VENDOR=nvidia` → `nvidia-utils` "GPU NVIDIA => drivers + libGL".
@@ -151,22 +195,68 @@ git clone <your-repo> && cd arch_installer
 bash output/install.sh   # review it first!
 ```
 
-## Roadmap (upcoming versions)
+## 🎨 Screenshots & Examples
 
-1. **Profiles**: besides Hyprland, support GNOME/KDE/i3, and profiles
-   (dev, gaming, minimal).
-2. **Finer GPU selection**: choose `nvidia` vs `nvidia-open` based on the
-   exact model (readable from `lspci -nn`), and handle hybrid setups
-   (both vendors).
-3. **Layout editor**: choose partitions beyond the defaults (separate
-   `/home`, custom sizes, swap file instead of partition...).
-4. **Config file**: persist `LOCALE`/`HOST_NAME`/`TIMEZONE`/disk choices
-   instead of env vars.
+**Interactive Menu:**
+```
+╔═══════════════════════════════════════════════════════╗
+║     Arch Hyprland Automated Installer                ║
+╚═══════════════════════════════════════════════════════╝
 
-## References
+1) 🚀 Full Auto Install
+2) 🔍 Detect Hardware Only
+3) 📦 Configure Packages & Profile
+...
+```
 
-- [archinstall](https://github.com/archlinux/archinstall) — official
-  installer (Python): the biggest real decision tree that exists.
+**Package Selection:**
+- Choose profile: Hyprland / Minimal / Custom
+- Pick extras: Node.js, Docker, MariaDB, VS Code...
+- See justification: Every package explains why it was selected
+
+**Generated Report:**
+See `output/report.md` for hardware detection results and package decisions with full reasoning.
+
+## 📚 Documentation
+
+- **[QUICKSTART.md](QUICKSTART.md)** - Get started in 5 minutes
+- **[FEATURES.md](FEATURES.md)** - Full feature list and roadmap
+- **[TODO.md](TODO.md)** - Original development plan (educational)
+- **README.md** (this file) - Complete reference
+
+## 🗺️ Roadmap
+
+See [FEATURES.md](FEATURES.md) for the complete roadmap.
+
+**Next up:**
+- v2.1: Multi-profile support (GNOME, KDE, i3)
+- v2.2: Advanced GPU configuration
+- v2.3: Post-install configuration wizard
+- v3.0: Dual-boot support
+
+## 🤝 Contributing
+
+Contributions welcome! See [FEATURES.md](FEATURES.md) for ideas.
+
+1. Fork the repository
+2. Create feature branch
+3. Make changes with tests
+4. Submit pull request
+
+## 📜 License
+
+Educational project - feel free to use, modify, and learn from it.
+
+## 🙏 Credits & Inspiration
+
+- [JaKooLit/Arch-Hyprland](https://github.com/JaKooLit/Arch-Hyprland) - Inspiration for interactive UI
+- [archinstall](https://github.com/archlinux/archinstall) - Official installer reference
+- [Arch Wiki](https://wiki.archlinux.org/) - Comprehensive documentation
+- [Hyprland](https://hyprland.org/) - Amazing Wayland compositor
+
+## 📖 References
+
 - [Arch Wiki: Installation guide](https://wiki.archlinux.org/title/Installation_guide)
 - [Arch Wiki: pacman](https://wiki.archlinux.org/title/Pacman)
 - [archlinux.org package API](https://wiki.archlinux.org/title/DeveloperWiki:Package_search)
+- [Hyprland Wiki](https://wiki.hyprland.org/)

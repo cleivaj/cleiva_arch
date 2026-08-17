@@ -1,0 +1,16 @@
+# Minimal Preset
+# Usage: ./init.sh --preset presets/minimal.preset
+#
+# This preset creates a minimal base installation without desktop environment
+
+# Profile selection
+PROFILE="minimal"
+
+# Extra packages (only essentials)
+EXTRA_PACKAGES="vim tmux"
+
+# Minimal partition layout
+LAYOUT="
+[swap] linux-swap auto
+/ ext4 rest
+"
