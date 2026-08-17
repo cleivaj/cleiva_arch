@@ -126,10 +126,14 @@ full_auto_install() {
     
     # Step 2: System Config
     echo -e "\n${BOLD}Step 2/6: System Configuration${RESET}"
-    step_system_config || {
+    echo -e "${INFO} Starting system configuration..."
+    
+    if ! step_system_config; then
         whiptail --title "Error" --msgbox "System configuration cancelled or failed!" 8 50
         return 1
-    }
+    fi
+    
+    echo -e "${OK} System configuration complete"
     sleep 1
     
     # Step 3: Packages

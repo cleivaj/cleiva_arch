@@ -28,30 +28,54 @@ step_system_config() {
     fi
     
     source output/facts.txt
-    source lib/menus/system_config.sh
+    
+    # Load menu functions
+    if ! source lib/menus/system_config.sh; then
+        whiptail --title "Error" --msgbox "Failed to load system configuration menu." 8 60
+        return 1
+    fi
     
     # Hostname
+    echo -e "${INFO} Configuring hostname..." >&2
     local hostname
     hostname=$(menu_select_hostname)
+    if [[ -z "$hostname" ]]; then
+        hostname="arch"
+    fi
     echo "HOST_NAME=$hostname" >> output/facts.txt
     
     # Keyboard
+    echo -e "${INFO} Configuring keyboard..." >&2
     local kb_layout
     kb_layout=$(menu_select_keyboard)
+    if [[ -z "$kb_layout" ]]; then
+        kb_layout="us"
+    fi
     echo "KEYMAP=$kb_layout" >> output/facts.txt
     
     # Locale
+    echo -e "${INFO} Configuring locale..." >&2
     local locale
     locale=$(menu_select_locale)
+    if [[ -z "$locale" ]]; then
+        locale="en_US.UTF-8"
+    fi
     echo "LOCALE=$locale" >> output/facts.txt
+    echo -e "${OK} Locale set to: $locale" >&2
     
     # Timezone
+    echo -e "${INFO} Configuring timezone..." >&2
     local detected_tz="${TIMEZONE:-UTC}"
     local tz_choice
     tz_choice=$(menu_select_timezone "$detected_tz")
+    if [[ -z "$tz_choice" ]]; then
+        tz_choice="$detected_tz"
+    fi
     sed -i "s|^TIMEZONE=.*|TIMEZONE=$tz_choice|" output/facts.txt
+    echo -e "${OK} Timezone set to: $tz_choice" >&2
     
     # Summary
+    echo -e "${INFO} Showing summary..." >&2
     show_system_config_summary "$hostname" "$kb_layout" "$locale" "$tz_choice"
     
     return 0
@@ -65,7 +89,6 @@ step_packages() {
     fi
     
     source output/facts.txt
-    source lib/menus/packages.sh
     
     # Base profile selection
     local profile
@@ -80,6 +103,7 @@ step_packages() {
     echo "PROFILE=$profile" >> output/facts.txt
     
     # Extra packages selection
+    source lib/menus/packages.sh
     local extras
     extras=$(menu_select_extra_packages)
     
@@ -89,11 +113,11 @@ step_packages() {
         echo "EXTRA_PACKAGES=\"$extras\"" >> output/facts.txt
     fi
     
-    # Run package decision tree
+    # Run package decision tree (this defines the 'add' function)
     source decide/packages.sh
     build_packages
     
-    # Add extra packages
+    # Add extra packages (now 'add' function is available)
     add_extra_packages_to_tree "$extras"
     
     # Write packages
