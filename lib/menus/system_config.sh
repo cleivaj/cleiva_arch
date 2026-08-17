@@ -7,9 +7,10 @@ menu_select_hostname() {
     
     hostname=$(whiptail --title "Hostname Configuration" \
         --inputbox "Enter hostname for your system:" 10 60 "$default_hostname" \
-        3>&1 1>&2 2>&3)
+        3>&2 2>&1 1>&3)
     
-    [[ -z "$hostname" ]] && hostname="$default_hostname"
+    local exit_code=$?
+    [[ $exit_code -ne 0 || -z "$hostname" ]] && hostname="$default_hostname"
     echo "$hostname"
 }
 
@@ -30,9 +31,10 @@ menu_select_keyboard() {
         "jp" "Japanese" \
         "latam" "Latin American Spanish" \
         "dvorak" "Dvorak" \
-        3>&1 1>&2 2>&3)
+        3>&2 2>&1 1>&3)
     
-    [[ -z "$kb_layout" ]] && kb_layout="us"
+    local exit_code=$?
+    [[ $exit_code -ne 0 || -z "$kb_layout" ]] && kb_layout="us"
     echo "$kb_layout"
 }
 
@@ -51,9 +53,10 @@ menu_select_locale() {
         "it_IT.UTF-8" "Italian" \
         "ru_RU.UTF-8" "Russian" \
         "ja_JP.UTF-8" "Japanese" \
-        3>&1 1>&2 2>&3)
+        3>&2 2>&1 1>&3)
     
-    [[ -z "$locale" ]] && locale="en_US.UTF-8"
+    local exit_code=$?
+    [[ $exit_code -ne 0 || -z "$locale" ]] && locale="en_US.UTF-8"
     echo "$locale"
 }
 
@@ -63,7 +66,8 @@ menu_select_timezone() {
     
     # Ask if user wants to keep detected timezone or change it
     if whiptail --title "Timezone Configuration" \
-        --yesno "Detected timezone: $detected_tz\n\nDo you want to keep this timezone?" 10 60; then
+        --yesno "Detected timezone: $detected_tz\n\nDo you want to keep this timezone?" 10 60 \
+        3>&2 2>&1 1>&3; then
         tz_choice="$detected_tz"
     else
         # Show common timezones
@@ -83,9 +87,10 @@ menu_select_timezone() {
             "America/Sao_Paulo" "Brazil" \
             "America/Mexico_City" "Mexico" \
             "Asia/Tokyo" "Japan" \
-            3>&1 1>&2 2>&3)
+            3>&2 2>&1 1>&3)
         
-        [[ -z "$tz_choice" ]] && tz_choice="$detected_tz"
+        local exit_code=$?
+        [[ $exit_code -ne 0 || -z "$tz_choice" ]] && tz_choice="$detected_tz"
     fi
     
     echo "$tz_choice"
