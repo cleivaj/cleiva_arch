@@ -7,7 +7,7 @@ source lib/common.sh
 source lib/api.sh
 
 usage() {
-    echo "Usage: $0 <detect|decide|search|check|all>"
+    echo "Usage: $0 <detect|decide|search|check|all|install>"
 }
 
 if [[ $# -lt 1 ]]; then
@@ -107,6 +107,15 @@ cmd_partition() {
     cat output/partition.txt
 }
 
+cmd_install() {
+    source output/facts.txt
+    source decide/partition.sh
+    source decide/install.sh
+    build_install_plan >output/install.sh
+    info "Install script generated: output/install.sh"
+    cat output/install.sh
+}
+
 case "$1" in
 detect) cmd_detect ;;
 decide) cmd_decide ;;
@@ -115,7 +124,7 @@ check) cmd_check ;;
 clean) cmd_clean ;;
 all) cmd_all ;;
 partition) cmd_partition ;;
-
+install) cmd_install ;;
 *)
     usage
     exit 1

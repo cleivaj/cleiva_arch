@@ -18,6 +18,11 @@ build_partitions() {
         swap=$(($RAM_GB / 2))
     fi
 
+    DISK="$disk"
+    FS_ROOT="$fs"
+    SWAP_GB="$swap"
+    PART_EFI="${disk}p1; PART_SWAP=${disk}p2; PART_ROOT=${disk}p3"
+
     echo "Disk: $disk (filesystem: $fs)"
 
     case "${FIRMWARE:-bios}" in
