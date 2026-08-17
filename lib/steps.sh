@@ -36,7 +36,6 @@ step_system_config() {
     fi
     
     # Hostname
-    echo -e "${INFO} Configuring hostname..." >&2
     local hostname
     hostname=$(menu_select_hostname)
     if [[ -z "$hostname" ]]; then
@@ -45,7 +44,6 @@ step_system_config() {
     echo "HOST_NAME=$hostname" >> output/facts.txt
     
     # Keyboard
-    echo -e "${INFO} Configuring keyboard..." >&2
     local kb_layout
     kb_layout=$(menu_select_keyboard)
     if [[ -z "$kb_layout" ]]; then
@@ -54,17 +52,14 @@ step_system_config() {
     echo "KEYMAP=$kb_layout" >> output/facts.txt
     
     # Locale
-    echo -e "${INFO} Configuring locale..." >&2
     local locale
     locale=$(menu_select_locale)
     if [[ -z "$locale" ]]; then
         locale="en_US.UTF-8"
     fi
     echo "LOCALE=$locale" >> output/facts.txt
-    echo -e "${OK} Locale set to: $locale" >&2
     
     # Timezone
-    echo -e "${INFO} Configuring timezone..." >&2
     local detected_tz="${TIMEZONE:-UTC}"
     local tz_choice
     tz_choice=$(menu_select_timezone "$detected_tz")
@@ -72,10 +67,8 @@ step_system_config() {
         tz_choice="$detected_tz"
     fi
     sed -i "s|^TIMEZONE=.*|TIMEZONE=$tz_choice|" output/facts.txt
-    echo -e "${OK} Timezone set to: $tz_choice" >&2
     
     # Summary
-    echo -e "${INFO} Showing summary..." >&2
     show_system_config_summary "$hostname" "$kb_layout" "$locale" "$tz_choice"
     
     return 0
