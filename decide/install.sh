@@ -196,15 +196,54 @@ EOF
 systemctl enable $services
 $bootloader_install
 grub-mkconfig -o /boot/grub/grub.cfg
+EOF
+
+    # Add root password configuration
+    if [[ -n "${ROOT_PASSWORD:-}" ]]; then
+        cat <<'EOF'
+echo "Setting root password..."
+echo "root:$ROOT_PASSWORD" | chpasswd
+EOF
+    else
+        cat <<'EOF'
 echo "== Set the root password =="
 passwd
+EOF
+    fi
+
+    # Add user creation
+    if [[ -n "${USERNAME:-}" ]]; then
+        cat <<EOF
+echo "Creating user: $USERNAME..."
+useradd -m -G wheel "$USERNAME"
+EOF
+        if [[ -n "${USER_PASSWORD:-}" ]]; then
+            cat <<'EOF'
+echo "$USERNAME:$USER_PASSWORD" | chpasswd
+EOF
+        else
+            cat <<EOF
+echo "== Set the password for $USERNAME =="
+passwd "$USERNAME"
+EOF
+        fi
+        cat <<'EOF'
+sed -i "s/^# %wheel ALL=(ALL:ALL) ALL/%wheel ALL=(ALL:ALL) ALL/" /etc/sudoers
+EOF
+    else
+        # Interactive user creation (fallback)
+        cat <<'EOF'
 read -rp "Create a user? (enter a name, or leave empty to skip): " USERNAME
-if [[ -n "\$USERNAME" ]]; then
-    useradd -m -G wheel "\$USERNAME"
-    echo "== Set the password for \$USERNAME =="
-    passwd "\$USERNAME"
+if [[ -n "$USERNAME" ]]; then
+    useradd -m -G wheel "$USERNAME"
+    echo "== Set the password for $USERNAME =="
+    passwd "$USERNAME"
     sed -i "s/^# %wheel ALL=(ALL:ALL) ALL/%wheel ALL=(ALL:ALL) ALL/" /etc/sudoers
 fi
+EOF
+    fi
+
+    cat <<'EOF'
 CHROOT_EOF
 EOF
 }

@@ -112,3 +112,104 @@ Timezone: $tz_choice
 
 These settings will be applied during installation." 14 60
 }
+
+menu_select_user() {
+    local username
+    
+    username=$(whiptail --title "User Configuration" \
+        --inputbox "Enter username for your user account:\n\n(Leave empty to configure during installation)" 12 60 \
+        3>&2 2>&1 1>&3)
+    
+    local exit_code=$?
+    
+    # If cancelled or empty, return empty
+    if [[ $exit_code -ne 0 || -z "$username" ]]; then
+        echo ""
+        return 0
+    fi
+    
+    # Validate username (lowercase, alphanumeric, starts with letter)
+    if ! [[ "$username" =~ ^[a-z][a-z0-9_-]*$ ]]; then
+        whiptail --title "Invalid Username" --msgbox \
+"Invalid username: $username
+
+Username must:
+- Start with a lowercase letter
+- Contain only lowercase letters, numbers, dash, underscore
+- No spaces or special characters
+
+Example: john, maria_silva, user123" 14 60
+        menu_select_user  # Try again
+        return
+    fi
+    
+    echo "$username"
+}
+
+menu_select_user_password() {
+    local password password_confirm
+    
+    while true; do
+        password=$(whiptail --title "User Password" \
+            --passwordbox "Enter password for your user:" 10 60 \
+            3>&2 2>&1 1>&3)
+        
+        local exit_code=$?
+        if [[ $exit_code -ne 0 ]]; then
+            echo ""
+            return 1
+        fi
+        
+        if [[ -z "$password" ]]; then
+            whiptail --title "Error" --msgbox "Password cannot be empty!" 8 40
+            continue
+        fi
+        
+        password_confirm=$(whiptail --title "User Password" \
+            --passwordbox "Confirm password:" 10 60 \
+            3>&2 2>&1 1>&3)
+        
+        if [[ "$password" != "$password_confirm" ]]; then
+            whiptail --title "Error" --msgbox "Passwords do not match!\n\nPlease try again." 10 40
+            continue
+        fi
+        
+        # Password matches, return it
+        echo "$password"
+        return 0
+    done
+}
+
+menu_select_root_password() {
+    local password password_confirm
+    
+    while true; do
+        password=$(whiptail --title "Root Password" \
+            --passwordbox "Enter password for root user:" 10 60 \
+            3>&2 2>&1 1>&3)
+        
+        local exit_code=$?
+        if [[ $exit_code -ne 0 ]]; then
+            echo ""
+            return 1
+        fi
+        
+        if [[ -z "$password" ]]; then
+            whiptail --title "Error" --msgbox "Root password cannot be empty!" 8 40
+            continue
+        fi
+        
+        password_confirm=$(whiptail --title "Root Password" \
+            --passwordbox "Confirm root password:" 10 60 \
+            3>&2 2>&1 1>&3)
+        
+        if [[ "$password" != "$password_confirm" ]]; then
+            whiptail --title "Error" --msgbox "Passwords do not match!\n\nPlease try again." 10 40
+            continue
+        fi
+        
+        # Password matches, return it
+        echo "$password"
+        return 0
+    done
+}

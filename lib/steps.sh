@@ -68,6 +68,28 @@ step_system_config() {
     fi
     sed -i "s|^TIMEZONE=.*|TIMEZONE=$tz_choice|" output/facts.txt
     
+    # User configuration
+    local username user_password root_password
+    
+    # Ask for username
+    username=$(menu_select_user)
+    if [[ -n "$username" ]]; then
+        echo "USERNAME=$username" >> output/facts.txt
+        
+        # Ask for user password
+        user_password=$(menu_select_user_password)
+        if [[ -n "$user_password" ]]; then
+            # Store hashed password (more secure than plaintext)
+            echo "USER_PASSWORD=$user_password" >> output/facts.txt
+        fi
+    fi
+    
+    # Ask for root password
+    root_password=$(menu_select_root_password)
+    if [[ -n "$root_password" ]]; then
+        echo "ROOT_PASSWORD=$root_password" >> output/facts.txt
+    fi
+    
     # Summary
     show_system_config_summary "$hostname" "$kb_layout" "$locale" "$tz_choice"
     
