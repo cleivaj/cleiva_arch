@@ -48,6 +48,24 @@ build_install_plan() {
     local locale="${LOCALE:-en_US.UTF-8}"
     local hostname="${HOST_NAME:-arch}"
     local keymap="${KEYMAP:-us}"
+    
+    # Determine reflector countries based on timezone
+    local reflector_country="${REFLECTOR_COUNTRY:-}"
+    if [[ -z "$reflector_country" ]]; then
+        case "$tz" in
+            Europe/Lisbon) reflector_country="Portugal,Spain" ;;
+            Europe/Madrid) reflector_country="Spain,Portugal,France" ;;
+            Europe/Paris|Europe/Berlin) reflector_country="France,Germany,Netherlands" ;;
+            Europe/London) reflector_country="United Kingdom,France,Germany" ;;
+            Europe/Moscow) reflector_country="Russia,Finland,Poland" ;;
+            America/New_York|America/Chicago|America/Denver|America/Los_Angeles) 
+                reflector_country="United States" ;;
+            America/Sao_Paulo) reflector_country="Brazil,Argentina" ;;
+            America/Mexico_City) reflector_country="Mexico,United States" ;;
+            Asia/Tokyo) reflector_country="Japan,South Korea" ;;
+            *) reflector_country="Portugal,Spain,France,Germany" ;;
+        esac
+    fi
 
     local bootloader_install="grub-install --target=x86_64-efi --efi-directory=/efi --bootloader-id=GRUB"
     [[ "${FIRMWARE:-uefi}" == "bios" ]] && bootloader_install="grub-install --target=i386-pc $DISK"
@@ -119,6 +137,24 @@ if [[ "\$(lsblk -d -n -o RM "$DISK" 2>/dev/null)" == "1" ]]; then
     echo "Refusing: $DISK looks like removable media" >&2
     exit 1
 fi
+
+# 0. Optimize mirrors for faster downloads
+echo "==> Optimizing package mirrors..."
+if ! command -v reflector &>/dev/null; then
+    echo "Installing reflector..."
+    pacman -Sy --noconfirm reflector
+fi
+
+echo "Selecting fastest mirrors (countries: $reflector_country)..."
+reflector --country $reflector_country \
+    --age 12 \
+    --protocol https \
+    --sort rate \
+    --save /etc/pacman.d/mirrorlist \
+    --verbose
+
+echo "✓ Mirrors optimized"
+echo ""
 
 # 1. Partitions (${FIRMWARE:-uefi})
 sgdisk --zap-all "$DISK"
