@@ -5,26 +5,6 @@
 
 set -uo pipefail
 
-# Colors and formatting
-if [[ -t 1 ]]; then
-    RED='\033[0;31m'
-    GREEN='\033[0;32m'
-    YELLOW='\033[0;33m'
-    BLUE='\033[0;34m'
-    MAGENTA='\033[0;35m'
-    CYAN='\033[0;36m'
-    BOLD='\033[1m'
-    RESET='\033[0m'
-else
-    RED='' GREEN='' YELLOW='' BLUE='' MAGENTA='' CYAN='' BOLD='' RESET=''
-fi
-
-OK="${GREEN}[✓]${RESET}"
-ERROR="${RED}[✗]${RESET}"
-INFO="${BLUE}[ℹ]${RESET}"
-WARN="${YELLOW}[⚠]${RESET}"
-ACTION="${CYAN}[→]${RESET}"
-
 # Get script directory
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 

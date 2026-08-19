@@ -138,22 +138,36 @@ if [[ "\$(lsblk -d -n -o RM "$DISK" 2>/dev/null)" == "1" ]]; then
     exit 1
 fi
 
-# 0. Optimize mirrors for faster downloads
-echo "==> Optimizing package mirrors..."
-if ! command -v reflector &>/dev/null; then
-    echo "Installing reflector..."
-    pacman -Sy --noconfirm reflector
+# 0. Network + package mirrors (pacman needs a usable mirrorlist)
+echo "==> Checking connectivity to Arch mirrors..."
+if command -v curl >/dev/null 2>&1; then
+    if ! curl -fsS --max-time 15 -o /dev/null https://geo.mirror.pkgbuild.com/ 2>/dev/null; then
+        echo "ERROR: cannot reach Arch mirrors — check your network (DHCP/DNS) and retry" >&2
+        exit 1
+    fi
 fi
 
-echo "Selecting fastest mirrors (countries: $reflector_country)..."
-reflector --country $reflector_country \
-    --age 12 \
-    --protocol https \
-    --sort rate \
-    --save /etc/pacman.d/mirrorlist \
-    --verbose
+echo "==> Setting up package mirrors..."
+# Always-reachable Arch tier-1 mirror, kept as a fallback
+FALLBACK_SERVER='https://geo.mirror.pkgbuild.com/\$repo/os/\$arch'
 
-echo "✓ Mirrors optimized"
+if command -v reflector >/dev/null 2>&1; then
+    echo "Selecting fastest mirrors (countries: $reflector_country)..."
+    reflector --country "$reflector_country" \
+        --protocol https \
+        --latest 20 \
+        --sort rate \
+        --save /etc/pacman.d/mirrorlist \
+        || echo "WARNING: reflector failed, using fallback mirror" >&2
+fi
+
+# Safety net: never leave pacman with an empty mirrorlist
+if ! grep -q '^Server' /etc/pacman.d/mirrorlist 2>/dev/null; then
+    echo "No usable mirrors found — using tier-1 fallback" >&2
+    printf 'Server = %s\n' "\$FALLBACK_SERVER" > /etc/pacman.d/mirrorlist
+fi
+
+echo "✓ Mirrors ready"
 echo ""
 
 # 1. Partitions (${FIRMWARE:-uefi})
@@ -168,6 +182,10 @@ pacstrap -K /mnt ${pkgs}${extra}
 
 # 5. fstab (all mounts above must exist)
 genfstab -U /mnt >> /mnt/etc/fstab
+
+# 5.1 Make the working mirrorlist available inside the new system
+#     (pacman-mirrorlist ships with every server commented out)
+cp /etc/pacman.d/mirrorlist /mnt/etc/pacman.d/mirrorlist
 
 # 6. Chroot configuration
 arch-chroot /mnt /bin/bash <<'CHROOT_EOF'
@@ -200,9 +218,9 @@ EOF
 
     # Add root password configuration
     if [[ -n "${ROOT_PASSWORD:-}" ]]; then
-        cat <<'EOF'
+        cat <<EOF
 echo "Setting root password..."
-echo "root:$ROOT_PASSWORD" | chpasswd
+echo "root:${ROOT_PASSWORD}" | chpasswd
 EOF
     else
         cat <<'EOF'
@@ -218,8 +236,8 @@ echo "Creating user: $USERNAME..."
 useradd -m -G wheel "$USERNAME"
 EOF
         if [[ -n "${USER_PASSWORD:-}" ]]; then
-            cat <<'EOF'
-echo "$USERNAME:$USER_PASSWORD" | chpasswd
+            cat <<EOF
+echo "${USERNAME}:${USER_PASSWORD}" | chpasswd
 EOF
         else
             cat <<EOF

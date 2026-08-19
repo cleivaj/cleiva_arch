@@ -35,8 +35,8 @@ mkfs_cmd_for() {
 type_code_for() {
     case "$1" in
     /efi) echo "ef00" ;;
-    [swap]) echo "8200" ;;
-    [bios_grub]) echo "ef02" ;;
+    "[swap]") echo "8200" ;;
+    "[bios_grub]") echo "ef02" ;;
     *) echo "8300" ;;
     esac
 }
@@ -64,6 +64,7 @@ build_partitions() {
     local disk="/dev/${DISK_NAME:-unknown}"
     local suffix; suffix=$(partition_suffix)
     local fs; fs=$(default_fs)
+    local ram="${RAM_GB:-0}"
 
     LAYOUT_ENTRIES=() # "mount|fs|size", one per partition
 
@@ -143,7 +144,7 @@ build_partitions() {
         local part="/dev/${DISK_NAME}${suffix}${k}"
         case "$mp2" in
         /efi) PART_EFI="$part" ;;
-        [swap])
+        "[swap]")
             PART_SWAP="$part"
             [[ "$size2" =~ ^[0-9]+G$ ]] && SWAP_GB="${size2%G}"
             ;;
