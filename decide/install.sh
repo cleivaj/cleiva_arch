@@ -132,6 +132,14 @@ if [[ "\$(systemd-detect-virt)" == "none" ]]; then
     exit 1
 fi
 
+# Safety: the disk this script was generated for must exist here.
+# (Stale output/ from another machine points at the wrong disk.)
+if [[ ! -b "$DISK" ]]; then
+    echo "Target disk $DISK not found on this machine." >&2
+    echo "Re-run detection inside this VM: ./main.sh clean && ./main.sh all && ./main.sh install" >&2
+    exit 1
+fi
+
 # Safety: never partition removable media (e.g. the USB stick you booted from)
 if [[ "\$(lsblk -d -n -o RM "$DISK" 2>/dev/null)" == "1" ]]; then
     echo "Refusing: $DISK looks like removable media" >&2
